@@ -1,0 +1,9 @@
+city,state,iso_country,latitude,longitude,cpi_column
+Sydney,NSW,AUS,-33.8688,151.2093,cpi_pct_sydney
+Melbourne,VIC,AUS,-37.8136,144.9631,cpi_pct_melbourne
+Brisbane,QLD,AUS,-27.4698,153.0251,cpi_pct_brisbane
+Adelaide,SA,AUS,-34.9285,138.6007,cpi_pct_adelaide
+Perth,WA,AUS,-31.9505,115.8605,cpi_pct_perth
+Hobart,TAS,AUS,-42.8821,147.3272,cpi_pct_hobart
+Darwin,NT,AUS,-12.4634,130.8456,cpi_pct_darwin
+Canberra,ACT,AUS,-35.2809,149.13,cpi_pct_canberra
