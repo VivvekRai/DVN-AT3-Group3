@@ -1314,22 +1314,22 @@ if scene_nav == "All Scenes":
                 border-left: 5px solid #3498DB; margin: 1rem 0;'>
     <h4 style='color: #3498DB; margin-top: 0;'>For Paula's Policy Briefing:</h4>
     
-    <p><b>1. Crime Scene:</b> GDP grows (+{gdp_val:.1f}%) while per capita at 
-    {per_capita_val:+.1f}% — macro vs household divergence</p>
+    <p><b>1. Crime Scene:</b> GDP grows {gdp_val:.1f}% while per capita at 
+    {per_capita_val:+.1f}% - macro vs household divergence</p>
     
-    <p><b>2. Red Herring:</b> Employment strong ({employed_latest} employed) — 
+    <p><b>2. Red Herring:</b> Employment strong ({employed_latest} employed) - 
     but employment ≠ wage adequacy</p>
     
     <p><b>3. Culprit:</b> Real wages turned negative ({real_wage_val:.2f}% in 
-    {first_negative_q}) — first quantifiable household pressure</p>
+    {first_negative_q}) - first quantifiable household pressure</p>
     
-    <p><b>4. Deeper Motive:</b> Perth CPI highest ({perth_avg:.2f}%) — 
+    <p><b>4. Deeper Motive:</b> Perth CPI highest ({perth_avg:.2f}%) - 
     geographic inequality compounds national trend</p>
     
-    <p><b>5. Verdict:</b> Housing CPI {housing_ratio:.1f}x faster than overall CPI — 
+    <p><b>5. Verdict:</b> Housing CPI {housing_ratio:.1f}x faster than overall CPI - 
     specific policy target identified</p>
     
-    <p style='margin-bottom: 0;'><b>🎯 Defensible Recommendation:</b> Traditional 
+    <p style='margin-bottom: 0;'><b>Defensible Recommendation:</b> Traditional 
     macro indicators mask household financial pressure. Real wage decline driven 
     primarily by housing inflation. Paula should advocate for housing-targeted 
     interventions rather than broad economic stimulus.</p>
