@@ -143,6 +143,28 @@ scene_nav = st.sidebar.radio(
 st.sidebar.markdown("---")
 
 # --------------------------------------------------------
+# What-If Sliders
+# --------------------------------------------------------
+st.sidebar.markdown("### What-If Analysis")
+wage_increase = st.sidebar.slider("Wage Increase (%):", 0.0, 10.0, 3.5, 0.5)
+cpi_forecast = st.sidebar.slider("CPI Forecast (%):", 0.0, 8.0, 3.0, 0.5)
+
+purchasing_power_change = wage_increase - cpi_forecast
+future_purchasing_power = 100 * (1 + purchasing_power_change / 100)
+
+if purchasing_power_change > 0:
+    st.sidebar.success(f"✅ +{purchasing_power_change:.1f}% gain")
+elif purchasing_power_change < 0:
+    st.sidebar.error(f"❌ {purchasing_power_change:.1f}% loss")
+else:
+    st.sidebar.warning(f"➖ {purchasing_power_change:.1f}% breakeven")
+
+st.sidebar.metric("Purchasing Power", f"{future_purchasing_power:.1f}",
+                  f"{purchasing_power_change:.1f}%")
+
+st.sidebar.markdown("---")
+
+# --------------------------------------------------------
 # City Filter — interactive Australia map
 # --------------------------------------------------------
 st.sidebar.markdown("### City Filter")
@@ -297,26 +319,6 @@ if selected_city != st.session_state.selected_city:
     st.rerun()
 
 st.sidebar.markdown("---")
-
-# --------------------------------------------------------
-# What-If Sliders
-# --------------------------------------------------------
-st.sidebar.markdown("### What-If Analysis")
-wage_increase = st.sidebar.slider("Wage Increase (%):", 0.0, 10.0, 3.5, 0.5)
-cpi_forecast = st.sidebar.slider("CPI Forecast (%):", 0.0, 8.0, 3.0, 0.5)
-
-purchasing_power_change = wage_increase - cpi_forecast
-future_purchasing_power = 100 * (1 + purchasing_power_change / 100)
-
-if purchasing_power_change > 0:
-    st.sidebar.success(f"✅ +{purchasing_power_change:.1f}% gain")
-elif purchasing_power_change < 0:
-    st.sidebar.error(f"❌ {purchasing_power_change:.1f}% loss")
-else:
-    st.sidebar.warning(f"➖ {purchasing_power_change:.1f}% breakeven")
-
-st.sidebar.metric("Purchasing Power", f"{future_purchasing_power:.1f}",
-                  f"{purchasing_power_change:.1f}%")
 
 # ============================================================
 # MAIN DASHBOARD
