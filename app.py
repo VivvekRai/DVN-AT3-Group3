@@ -354,9 +354,9 @@ st.markdown("### Instant Brief")
 col1, col2, col3, col4 = st.columns(4)
 
 gdp_val = df.iloc[-1]['gdp_growth_pct']
-real_wage_val = df['real_wage_growth'].iloc[-2]  # Dec-2025 (last WPI quarter)
+real_wage_val = df['real_wage_growth'].dropna().iloc[-1]
 housing_yoy_val = pd.read_csv("housing_cpi_yoy.csv").iloc[-1]['housing_cpi_yoy']
-cumulative_val = df['cpi_cumulative_pct'].iloc[-1]
+cumulative_val = df['cpi_cumulative_pct'].dropna().iloc[-1]
 
 with col1:
     sign1 = "+" if gdp_val > 0 else ""
@@ -503,24 +503,48 @@ if scene_nav in ["All Scenes", "Scene 1: Crime Scene"]:
 
     col1, col2 = st.columns([2, 1])
     with col1:
-        st.info("""
-        **Policy Insight:** Macro indicators show economic growth, but per capita analysis 
-        reveals declining individual prosperity. This divergence signals population growth 
-        outpacing economic gains, a critical metric for household-focused policy interventions.
+        worst_per_capita = df['gdp_per_capita_growth_pct'].min()
+        worst_quarter = df.loc[df['gdp_per_capita_growth_pct'].idxmin(), 'period']
+        latest_gdp = df.iloc[-1]['gdp_growth_pct']
+        latest_per_capita = df.iloc[-1]['gdp_per_capita_growth_pct']
+        gap = latest_gdp - latest_per_capita
+
+        st.info(f"""
+        **Policy Insight:** Headline GDP grew **{latest_gdp:+.1f}%** in the latest quarter,
+        but per capita growth was only **{latest_per_capita:+.1f}%**, a gap of **{gap:.1f}%**.
+        Per capita hit a low of **{worst_per_capita:.1f}%** in **{worst_quarter}**,
+        signalling population growth outpacing economic gains.
+        This divergence is a critical metric for household-focused policy interventions.
         """)
+
     with col2:
         gdp_latest = df.iloc[-1]['gdp_growth_pct']
-        sign1 = "+" if gdp_latest > 0 else ""
-        st.metric("Latest GDP Growth",
-                 f"{sign1}{gdp_latest:.1f}%",
-                 f"{'Positive' if gdp_latest > 0 else 'Negative'}",
-                 delta_color="normal" if gdp_latest > 0 else "inverse")
+        color_gdp = '#27AE60' if gdp_latest > 0 else '#E74C3C'
+        arrow_gdp = '↑' if gdp_latest > 0 else '↓'
+        sign_gdp = "+" if gdp_latest > 0 else ""
+
         per_capita_latest = df.iloc[-1]['gdp_per_capita_growth_pct']
-        sign2 = "+" if per_capita_latest > 0 else ""
-        st.metric("Latest Per Capita",
-                 f"{sign2}{per_capita_latest:.1f}%",
-                 f"{'Positive' if per_capita_latest > 0 else 'Negative'}",
-                 delta_color="normal" if per_capita_latest > 0 else "inverse")
+        color_pc = '#27AE60' if per_capita_latest > 0 else '#E74C3C'
+        arrow_pc = '↑' if per_capita_latest > 0 else '↓'
+        sign_pc = "+" if per_capita_latest > 0 else ""
+
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px; margin-bottom:10px;
+                    border-left: 4px solid {color_gdp};'>
+            <div style='font-size:14px; color:#888;'>Latest GDP Growth</div>
+            <div style='font-size:28px; font-weight:700;'>{sign_gdp}{gdp_latest:.1f}%</div>
+            <div style='font-size:14px; color:{color_gdp};'>
+                {arrow_gdp} {'Positive' if gdp_latest > 0 else 'Negative'}</div>
+        </div>
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid {color_pc};'>
+            <div style='font-size:14px; color:#888;'>Latest Per Capita</div>
+            <div style='font-size:28px; font-weight:700;'>{sign_pc}{per_capita_latest:.1f}%</div>
+            <div style='font-size:14px; color:{color_pc};'>
+                {arrow_pc} {'Positive' if per_capita_latest > 0 else 'Negative'}</div>
+        </div>""", unsafe_allow_html=True)
 
     if scene_nav == "All Scenes":
         st.markdown("---")
@@ -583,7 +607,7 @@ if scene_nav in ["All Scenes", "Scene 2: Red Herring"]:
             tickfont=dict()
         )
         fig2.update_yaxes(
-            title_text="<b>Employed (000s)</b>",
+            title_text="<b>Employed</b>",
             showgrid=True, gridwidth=1,
             gridcolor='rgba(128,128,128,0.2)',
             showline=True, linewidth=1,
@@ -611,11 +635,14 @@ if scene_nav in ["All Scenes", "Scene 2: Red Herring"]:
         unemp_latest = df_labour['unemployment_rate_sa'].iloc[-1]
         unemp_start = df_labour['unemployment_rate_sa'].iloc[0]
 
+        start_date_label = df_labour['date'].iloc[0].strftime('%b-%Y')
+        end_date_label = df_labour['date'].iloc[-1].strftime('%b-%Y')
+
         st.success(f"""
-        **The Red Herring:** Employment grew by **{jobs_added:,.0f}k** jobs since 
-        Jan-2024, reaching **{employed_latest:,.0f}k** total. Yet unemployment also 
-        rose from **{unemp_start:.1f}%** to **{unemp_latest:.1f}%**. High employment 
-        tells us jobs exist, not whether wages cover living costs.
+        **The Red Herring:** Employment grew by **{jobs_added:,.0f}k** jobs from 
+        **{start_date_label}** to **{end_date_label}**, reaching **{employed_latest:,.0f}k** total. 
+        Yet unemployment also rose from **{unemp_start:.1f}%** to **{unemp_latest:.1f}%**. 
+        High employment tells us jobs exist, not whether wages cover living costs.
         """)
     else:
         st.warning("⚠️ Labour data unavailable")
@@ -676,8 +703,10 @@ if scene_nav in ["All Scenes", "Scene 3: Culprit"]:
                    line_width=3, opacity=0.7)
 
     # --- Annotation for first negative quarter ---
+    first_neg_quarter = df[df['real_wage_growth'] < 0]['period'].iloc[0]
+    first_neg_value = df[df['real_wage_growth'] < 0]['real_wage_growth'].iloc[0]
     fig3.add_annotation(
-        x='2025-Q4', y=-0.23,
+        x=first_neg_quarter, y=first_neg_value,
         text="<b>⚠️ FIRST NEGATIVE QUARTER</b><br>Purchasing power decline begins",
         showarrow=True, arrowhead=2, arrowsize=1.5, arrowwidth=4,
         arrowcolor=COLORS['danger'], ax=120, ay=60,
@@ -749,32 +778,67 @@ if scene_nav in ["All Scenes", "Scene 3: Culprit"]:
 
     peak_real_wage = df['real_wage_growth'].max()
     peak_quarter = df.loc[df['real_wage_growth'].idxmax(), 'period']
-    latest_real_wage = df['real_wage_growth'].iloc[-2]
-    latest_quarter = df['period'].iloc[-2]
-    latest_wpi = df['wpi_pct_change_yoy_sa'].iloc[-2]
-    latest_cpi = df['cpi_yoy_quarterly'].iloc[-2]
+    latest_real_wage = df['real_wage_growth'].dropna().iloc[-1]
+    latest_quarter = df.loc[df['real_wage_growth'].dropna().index[-1], 'period']
+    latest_wpi = df['wpi_pct_change_yoy_sa'].dropna().iloc[-1]
+    latest_cpi = df['cpi_yoy_quarterly'].dropna().iloc[-1]
+    net_change = df['real_wage_growth'].dropna().sum()
 
     with col1:
-        sign1 = "+" if peak_real_wage > 0 else ""
-        st.metric(f"Peak Gain ({peak_quarter})",
-                  f"{sign1}{peak_real_wage:.2f}%",
-                  f"{'Workers ahead' if peak_real_wage > 0 else 'Workers behind'}",
-                  delta_color="normal" if peak_real_wage > 0 else "inverse")
+        color1 = '#27AE60' if peak_real_wage > 0 else '#E74C3C'
+        arrow1 = '↑' if peak_real_wage > 0 else '↓'
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid {color1};'>
+            <div style='font-size:14px; color:#888;'>Peak Gain ({peak_quarter})</div>
+            <div style='font-size:28px; font-weight:700;'>+{peak_real_wage:.2f}%</div>
+            <div style='font-size:14px; color:{color1};'>{arrow1} Workers ahead</div>
+        </div>""", unsafe_allow_html=True)
+
     with col2:
+        color2 = '#27AE60' if latest_real_wage > 0 else '#E74C3C'
+        arrow2 = '↑' if latest_real_wage > 0 else '↓'
         sign2 = "+" if latest_real_wage > 0 else ""
-        st.metric(f"Latest ({latest_quarter})",
-                  f"{sign2}{latest_real_wage:.2f}%",
-                  f"{'Workers ahead' if latest_real_wage > 0 else 'Workers behind'}",
-                  delta_color="normal" if latest_real_wage > 0 else "inverse")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid {color2};'>
+            <div style='font-size:14px; color:#888;'>Latest ({latest_quarter})</div>
+            <div style='font-size:28px; font-weight:700; color:{color2};'>
+                {sign2}{latest_real_wage:.2f}%</div>
+            <div style='font-size:14px; color:{color2};'>
+                {arrow2} Workers {'ahead' if latest_real_wage > 0 else 'behind'}</div>
+        </div>""", unsafe_allow_html=True)
+
     with col3:
-        net_change = df['real_wage_growth'].sum()
+        color3 = '#27AE60' if net_change > 0 else '#E74C3C'
+        arrow3 = '↑' if net_change > 0 else '↓'
         sign3 = "+" if net_change > 0 else ""
-        st.metric("Cumulative Impact", f"{sign3}{net_change:.2f}%", "Overall period")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid {color3};'>
+            <div style='font-size:14px; color:#888;'>Cumulative Impact</div>
+            <div style='font-size:28px; font-weight:700;'>{sign3}{net_change:.2f}%</div>
+            <div style='font-size:14px; color:{color3};'>{arrow3} Overall period</div>
+        </div>""", unsafe_allow_html=True)
+
     with col4:
-        st.metric("What-If Projection",
-                  f"{projected_real_wage:.1f}%",
-                  "✅ Gain" if projected_real_wage > 0 else "➖ Breakeven" if projected_real_wage == 0 else "❌ Loss",
-                  delta_color="normal" if projected_real_wage > 0 else "inverse" if projected_real_wage < 0 else "warning")
+        color4 = '#27AE60' if projected_real_wage > 0 else '#95A5A6' if projected_real_wage == 0 else '#E74C3C'
+        arrow4 = '↑' if projected_real_wage > 0 else '➖' if projected_real_wage == 0 else '↓'
+        sign4 = "+" if projected_real_wage > 0 else ""
+        label4 = 'Gain' if projected_real_wage > 0 else 'Breakeven' if projected_real_wage == 0 else 'Loss'
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid {color4};'>
+            <div style='font-size:14px; color:#888;'>What-If Projection</div>
+            <div style='font-size:28px; font-weight:700; color:{color4};'>
+                {sign4}{projected_real_wage:.1f}%</div>
+            <div style='font-size:14px; color:{color4};'>{arrow4} {label4}</div>
+        </div>""", unsafe_allow_html=True)
+
 
     # --- What-If insight box ---
     if projected_real_wage > 0:
@@ -799,10 +863,12 @@ if scene_nav in ["All Scenes", "Scene 3: Culprit"]:
 
     # Critical Finding box
     first_negative = df[df['real_wage_growth'] < 0]['period'].iloc[0]
+    loss_or_gain = f"lost {abs(latest_real_wage):.2f}%" if latest_real_wage < 0 else f"gained {latest_real_wage:.2f}%"
+
     st.error(f"""
     **Critical Finding:** Real wages turned negative for the first time in 
     **{first_negative}**. Despite nominal wage increases of **{latest_wpi:.1f}%**, 
-    CPI growth of **{latest_cpi:.2f}%** means workers lost **{abs(latest_real_wage):.2f}%** 
+    CPI growth of **{latest_cpi:.2f}%** means workers **{loss_or_gain}** 
     purchasing power. This quantifies the household financial pressure requiring 
     policy response.
     """)
@@ -987,27 +1053,48 @@ if scene_nav in ["All Scenes", "Scene 4: Deeper Motive"]:
 
         with col1:
             sign1 = "+" if highest_city['avg_cpi'] > 0 else ""
-            st.metric(f"Highest ({highest_city['city']})",
-                      f"{sign1}{highest_city['avg_cpi']:.2f}%",
-                      f"#{highest_city['rank']}",
-                      delta_color="inverse")
+            st.markdown(f"""
+            <div style='background:var(--secondary-background-color); 
+                        border-radius:8px; padding:15px;
+                        border-left: 4px solid #E74C3C;'>
+                <div style='font-size:14px; color:#888;'>Highest ({highest_city['city']})</div>
+                <div style='font-size:28px; font-weight:700; color:#E74C3C;'>
+                    {sign1}{highest_city['avg_cpi']:.2f}%</div>
+                <div style='font-size:14px; color:#E74C3C;'>↑ #{highest_city['rank']} Nationally</div>
+            </div>""", unsafe_allow_html=True)
+
         with col2:
             sign2 = "+" if lowest_city['avg_cpi'] > 0 else ""
-            st.metric(f"Lowest ({lowest_city['city']})",
-                      f"{sign2}{lowest_city['avg_cpi']:.2f}%",
-                      f"#{lowest_city['rank']}",
-                      delta_color="normal")
+            st.markdown(f"""
+            <div style='background:var(--secondary-background-color); 
+                        border-radius:8px; padding:15px;
+                        border-left: 4px solid #27AE60;'>
+                <div style='font-size:14px; color:#888;'>Lowest ({lowest_city['city']})</div>
+                <div style='font-size:28px; font-weight:700; color:#27AE60;'>
+                    {sign2}{lowest_city['avg_cpi']:.2f}%</div>
+                <div style='font-size:14px; color:#27AE60;'>↓ #{lowest_city['rank']} Nationally</div>
+            </div>""", unsafe_allow_html=True)
+
         with col3:
             sign3 = "+" if spread > 0 else ""
-            st.metric("Regional Spread",
-                      f"{sign3}{spread:.2f}%",
-                      "Inequality gap")
+            st.markdown(f"""
+            <div style='background:var(--secondary-background-color); 
+                        border-radius:8px; padding:15px;
+                        border-left: 4px solid #F39C12;'>
+                <div style='font-size:14px; color:#888;'>Regional Spread</div>
+                <div style='font-size:28px; font-weight:700; color:#F39C12;'>
+                    {sign3}{spread:.2f}%</div>
+                <div style='font-size:14px; color:#F39C12;'>↕ Inequality gap</div>
+            </div>""", unsafe_allow_html=True)
 
         st.error(f"""
-        **Geographic Disparity:** Perth experienced {perth_avg:.2f}% average quarterly CPI growth, 
-        the highest nationally. This represents a {spread:.2f}% point gap from the 
-        lowest city, indicating significant regional inequality in cost-of-living pressures.
-        National policies may inadequately address localized inflation hotspots.
+        **Geographic Disparity:** **{highest_city['city']}** experienced 
+        **{highest_city['avg_cpi']:.2f}%** average quarterly CPI growth, 
+        the highest nationally (ranked #{highest_city['rank']}). 
+        **{lowest_city['city']}** had the lowest at **{lowest_city['avg_cpi']:.2f}%**. 
+        This **{spread:.2f}%** gap indicates significant regional inequality 
+        in cost-of-living pressures. National policies may inadequately address 
+        localised inflation hotspots.
         """)
     else:
         st.warning("⚠️ CPI city data unavailable")
@@ -1203,22 +1290,39 @@ if scene_nav in ["All Scenes", "Scene 5: Verdict"]:
     col1b, col2b, col3b = st.columns(3)
     with col1b:
         sign1 = "+" if latest_housing_yoy > 0 else ""
-        st.metric(f"Housing CPI YoY ({latest_date_label})",
-                  f"{sign1}{latest_housing_yoy:.2f}%",
-                  "Annual housing inflation",
-                  delta_color="inverse")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid #E74C3C;'>
+            <div style='font-size:14px; color:#888;'>Housing CPI YoY ({latest_date_label})</div>
+            <div style='font-size:28px; font-weight:700; color:#E74C3C;'>
+                {sign1}{latest_housing_yoy:.2f}%</div>
+            <div style='font-size:14px; color:#E74C3C;'>↑ Annual housing inflation</div>
+        </div>""", unsafe_allow_html=True)
+
     with col2b:
         sign2 = "+" if latest_overall_yoy > 0 else ""
-        st.metric(f"Overall CPI YoY ({latest_date_label})",
-                  f"{sign2}{latest_overall_yoy:.2f}%",
-                  "Annual overall inflation",
-                  delta_color="inverse")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid #3498DB;'>
+            <div style='font-size:14px; color:#888;'>Overall CPI YoY ({latest_date_label})</div>
+            <div style='font-size:28px; font-weight:700; color:#3498DB;'>
+                {sign2}{latest_overall_yoy:.2f}%</div>
+            <div style='font-size:14px; color:#3498DB;'>↑ Annual overall inflation</div>
+        </div>""", unsafe_allow_html=True)
+
     with col3b:
         sign3 = "+" if latest_gap > 0 else ""
-        st.metric("Housing Premium",
-                  f"{sign3}{latest_gap:.2f}%",
-                  "Housing above overall CPI",
-                  delta_color="inverse")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid #F39C12;'>
+            <div style='font-size:14px; color:#888;'>Housing Premium</div>
+            <div style='font-size:28px; font-weight:700; color:#F39C12;'>
+                {sign3}{latest_gap:.2f}%</div>
+            <div style='font-size:14px; color:#F39C12;'>↑ Housing above overall CPI</div>
+        </div>""", unsafe_allow_html=True)
 
     st.warning(f"""
     **Annual View:** Housing costs rose {latest_housing_yoy:.2f}% annually 
@@ -1229,31 +1333,54 @@ if scene_nav in ["All Scenes", "Scene 5: Verdict"]:
     """)
 
     col1, col2, col3 = st.columns(3)
+    ratio = housing_avg / cpi_avg if cpi_avg != 0 else 0
+
     with col1:
         sign1 = "+" if housing_avg > 0 else ""
-        st.metric("Housing CPI Average",
-                  f"{sign1}{housing_avg:.2f}%",
-                  f"{'Above' if housing_avg > cpi_avg else 'Below'} Overall CPI",
-                  delta_color="inverse")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid #E74C3C;'>
+            <div style='font-size:14px; color:#888;'>Housing CPI Average</div>
+            <div style='font-size:28px; font-weight:700; color:#E74C3C;'>
+                {sign1}{housing_avg:.2f}%</div>
+            <div style='font-size:14px; color:#E74C3C;'>
+                ↑ {'Above' if housing_avg > cpi_avg else 'Below'} Overall CPI</div>
+        </div>""", unsafe_allow_html=True)
+
     with col2:
         sign2 = "+" if cpi_avg > 0 else ""
-        st.metric("Overall CPI Average",
-                  f"{sign2}{cpi_avg:.2f}%",
-                  f"{'Below' if cpi_avg < housing_avg else 'Above'} Housing",
-                  delta_color="normal")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid #3498DB;'>
+            <div style='font-size:14px; color:#888;'>Overall CPI Average</div>
+            <div style='font-size:28px; font-weight:700; color:#3498DB;'>
+                {sign2}{cpi_avg:.2f}%</div>
+            <div style='font-size:14px; color:#3498DB;'>
+                ↓ {'Below' if cpi_avg < housing_avg else 'Above'} Housing</div>
+        </div>""", unsafe_allow_html=True)
+
     with col3:
-        ratio = housing_avg / cpi_avg if cpi_avg != 0 else 0
-        st.metric("Housing/CPI Ratio",
-                  f"{ratio:.2f}x",
-                  "Multiplier",
-                  delta_color="inverse")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid #F39C12;'>
+            <div style='font-size:14px; color:#888;'>Housing/CPI Ratio</div>
+            <div style='font-size:28px; font-weight:700; color:#F39C12;'>
+                {ratio:.2f}x</div>
+            <div style='font-size:14px; color:#F39C12;'>↑ Multiplier</div>
+        </div>""", unsafe_allow_html=True)
+
+    latest_real_wage_s5 = df['real_wage_growth'].dropna().iloc[-1]
+    wage_context = "negative real wage growth" if latest_real_wage_s5 < 0 else "slowing real wage growth"
 
     st.error(f"""
-    **The Verdict:** Housing CPI grew {ratio:.2f}x faster than overall CPI on average. 
-    As the single largest household expense, housing inflation is the primary driver of the 
-    negative real wage growth identified in Scene 3. Broad economic stimulus will not address 
-    this structural issue. Paula should recommend housing-specific interventions (supply, 
-    rent controls, mortgage relief) as the most effective policy lever.
+    **The Verdict:** Housing CPI grew **{ratio:.2f}x** faster than overall CPI on average.
+    As the single largest household expense, housing inflation is the primary driver of the
+    **{wage_context}** identified in Scene 3. Broad economic stimulus will not address
+    this structural issue. Paula should recommend housing-specific interventions
+    (supply, rent controls, mortgage relief) as the most effective policy lever.
     """)
 
     if scene_nav == "All Scenes":
@@ -1269,44 +1396,76 @@ if scene_nav == "All Scenes":
 
     gdp_val = df.iloc[-1]['gdp_growth_pct']
     per_capita_val = df.iloc[-1]['gdp_per_capita_growth_pct']
-    real_wage_val = df['real_wage_growth'].iloc[-2]
+    real_wage_val = df['real_wage_growth'].dropna().iloc[-1]
     housing_latest = df.iloc[-1]['housing_cpi_pct_change']
 
     with col1:
+        color1 = '#27AE60' if gdp_val > 0 else '#E74C3C'
+        arrow1 = '↑' if gdp_val > 0 else '↓'
         sign1 = "+" if gdp_val > 0 else ""
-        st.metric("GDP Growth",
-                  f"{sign1}{gdp_val:.1f}%",
-                  f"{'Macro positive' if gdp_val > 0 else 'Macro negative'}",
-                  delta_color="normal" if gdp_val > 0 else "inverse")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid {color1};'>
+            <div style='font-size:14px; color:#888;'>GDP Growth</div>
+            <div style='font-size:28px; font-weight:700;'>{sign1}{gdp_val:.1f}%</div>
+            <div style='font-size:14px; color:{color1};'>
+                {arrow1} {'Macro positive' if gdp_val > 0 else 'Macro negative'}</div>
+        </div>""", unsafe_allow_html=True)
+
     with col2:
+        color2 = '#27AE60' if per_capita_val > 0 else '#E74C3C'
+        arrow2 = '↑' if per_capita_val > 0 else '↓'
         sign2 = "+" if per_capita_val > 0 else ""
-        st.metric("Per Capita",
-                  f"{sign2}{per_capita_val:.1f}%",
-                  f"{'Individual positive' if per_capita_val > 0 else 'Individual negative'}",
-                  delta_color="normal" if per_capita_val > 0 else "inverse")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid {color2};'>
+            <div style='font-size:14px; color:#888;'>Per Capita</div>
+            <div style='font-size:28px; font-weight:700;'>{sign2}{per_capita_val:.1f}%</div>
+            <div style='font-size:14px; color:{color2};'>
+                {arrow2} {'Individual positive' if per_capita_val > 0 else 'Individual negative'}</div>
+        </div>""", unsafe_allow_html=True)
+
     with col3:
+        color3 = '#27AE60' if real_wage_val > 0 else '#E74C3C'
+        arrow3 = '↑' if real_wage_val > 0 else '↓'
         sign3 = "+" if real_wage_val > 0 else ""
-        st.metric("Real Wages",
-                  f"{sign3}{real_wage_val:.2f}%",
-                  f"{'Purchasing power gained' if real_wage_val > 0 else 'Purchasing power lost'}",
-                  delta_color="normal" if real_wage_val > 0 else "inverse")
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid {color3};'>
+            <div style='font-size:14px; color:#888;'>Real Wages</div>
+            <div style='font-size:28px; font-weight:700; color:{color3};'>
+                {sign3}{real_wage_val:.2f}%</div>
+            <div style='font-size:14px; color:{color3};'>
+                {arrow3} Purchasing power {'lost' if real_wage_val < 0 else 'gained'}</div>
+        </div>""", unsafe_allow_html=True)
+
     with col4:
-        sign4 = "+" if housing_latest > 0 else ""
-        st.metric("Housing CPI",
-                  f"{sign4}{housing_latest:.2f}%",
-                  "Primary driver",
-                  delta_color="inverse")
+        color4 = '#E74C3C'
+        st.markdown(f"""
+        <div style='background:var(--secondary-background-color); 
+                    border-radius:8px; padding:15px;
+                    border-left: 4px solid {color4};'>
+            <div style='font-size:14px; color:#888;'>Housing CPI</div>
+            <div style='font-size:28px; font-weight:700; color:{color4};'>
+                +{housing_latest:.2f}%</div>
+            <div style='font-size:14px; color:{color4};'>
+                ↑ Primary driver</div>
+        </div>""", unsafe_allow_html=True)
 
     st.markdown("### The Detective Arc: Five Scenes to Policy Clarity")
 
-# Dynamic values for summary
-    gdp_val = df.iloc[-1]['gdp_growth_pct']
-    per_capita_val = df.iloc[-1]['gdp_per_capita_growth_pct']
-    real_wage_val = df['real_wage_growth'].iloc[-2]
+    # Dynamic values for summary
+    worst_per_capita = df['gdp_per_capita_growth_pct'].min()
+    worst_per_capita_q = df.loc[df['gdp_per_capita_growth_pct'].idxmin(), 'period']
     first_negative_q = df[df['real_wage_growth'] < 0]['period'].iloc[0]
-    perth_avg = df_cpi[['cpi_pct_perth']].mean().values[0] if df_cpi is not None else 0
+    highest_city = df_city_avg.iloc[0]['city'] if 'df_city_avg' in dir() else "Perth"
+    highest_city_avg = df_city_avg.iloc[0]['avg_cpi'] if 'df_city_avg' in dir() else 0.93
     employed_latest = f"{df_labour['employed_total_sa'].iloc[-1]/1000:.1f}M" if df_labour is not None else "14M+"
     housing_ratio = df['housing_cpi_pct_change'].mean() / df['cpi_pct_australia'].mean()
+    wage_context = "negative" if real_wage_val < 0 else "slowing"
 
     st.markdown(f"""
     <div style='background-color: var(--secondary-background-color); 
@@ -1314,20 +1473,23 @@ if scene_nav == "All Scenes":
                 border-left: 5px solid #3498DB; margin: 1rem 0;'>
     <h4 style='color: #3498DB; margin-top: 0;'>For Paula's Policy Briefing:</h4>
     
-    <p><b>1. Crime Scene:</b> GDP grows {gdp_val:.1f}% while per capita at 
-    {per_capita_val:+.1f}% - macro vs household divergence</p>
+    <p><b>1. Crime Scene:</b> GDP grew <b>{gdp_val:+.1f}%</b> but per capita hit 
+    <b>{worst_per_capita:.1f}%</b> in <b>{worst_per_capita_q}</b> - 
+    population growth outpacing economic gains</p>
     
-    <p><b>2. Red Herring:</b> Employment strong ({employed_latest} employed) - 
+    <p><b>2. Red Herring:</b> Employment strong (<b>{employed_latest}</b> employed) - 
     but employment ≠ wage adequacy</p>
     
-    <p><b>3. Culprit:</b> Real wages turned negative ({real_wage_val:.2f}% in 
-    {first_negative_q}) - first quantifiable household pressure</p>
+    <p><b>3. Culprit:</b> Real wages turned <b>{wage_context}</b> 
+    (<b>{real_wage_val:+.2f}%</b> as of <b>{first_negative_q}</b>) - 
+    first quantifiable household pressure</p>
     
-    <p><b>4. Deeper Motive:</b> Perth CPI highest ({perth_avg:.2f}%) - 
+    <p><b>4. Deeper Motive:</b> <b>{highest_city}</b> CPI highest 
+    (<b>{highest_city_avg:.2f}%</b> avg quarterly) - 
     geographic inequality compounds national trend</p>
     
-    <p><b>5. Verdict:</b> Housing CPI {housing_ratio:.1f}x faster than overall CPI - 
-    specific policy target identified</p>
+    <p><b>5. Verdict:</b> Housing CPI <b>{housing_ratio:.1f}x</b> faster than 
+    overall CPI - specific policy target identified</p>
     
     <p style='margin-bottom: 0;'><b>Defensible Recommendation:</b> Traditional 
     macro indicators mask household financial pressure. Real wage decline driven 
@@ -1343,6 +1505,13 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: #95A5A6; padding: 1.5rem;'>
     <p style='margin: 0;'><em>Built with Streamlit | Data: Australian Bureau of Statistics (ABS)</em></p>
-    <p style='margin: 0.5rem 0 0 0; font-size: 0.9em;'>National Accounts (5206) • Labour Force (6202) • WPI (6345) • CPI (6401)</p>
+    <p style='margin: 0.5rem 0 0 0; font-size: 0.9em;'>
+        National Accounts (5206) • Labour Force (6202) • WPI (6345) • CPI (6401)
+    </p>
+    <p style='margin: 0.5rem 0 0 0; font-size: 0.85em;'>
+        UTS - Data Visualisation & Narratives - AT3 - Group 3 - Microeconomic detectives | 
+        <a href='https://github.com/VivvekRai/DVN-AT3-Group3' 
+           style='color: #3498DB;' target='_blank'>GitHub</a>
+    </p>
 </div>
 """, unsafe_allow_html=True)
